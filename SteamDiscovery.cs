@@ -1,7 +1,7 @@
 using Microsoft.Win32;
 using System.IO;
 using System.Text.RegularExpressions;
-namespace OpenGameSave;
+namespace Savepoint;
 public sealed record DetectedGame(string AppId, string Name, string InstallFolder, string LibraryPath);
 public static class SteamDiscovery
 {
