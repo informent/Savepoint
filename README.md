@@ -1,6 +1,6 @@
-# OpenGameSave
+# Savepoint
 
-OpenGameSave is a local-first Windows utility for protecting game saves with clear, inspectable backups.
+Savepoint is a local-first Windows utility for protecting game saves with clear, inspectable backups.
 
 ## What it does
 
@@ -13,13 +13,13 @@ OpenGameSave is a local-first Windows utility for protecting game saves with cle
 
 ## Use
 
-1. Start OpenGameSave.
+1. Start Savepoint.
 2. Select **Detect Steam games** and choose a game.
 3. Select **Find save folders**. If no single safe candidate is found, choose the folder manually.
 4. Choose a backup library on a different drive when possible.
 5. Create snapshots and restore them from the history panel.
 
-OpenGameSave never silently overwrites files.
+Savepoint never silently overwrites files.
 
 Version 1.2 records size and SHA-256 from the snapshot copy itself, refuses linked files and folders during capture, and checks restore roots and ancestors for reparse points before writing.
 
@@ -31,15 +31,21 @@ Version 1.3 rejects snapshot libraries that resolve inside a game's save folder 
 dotnet run --project tests/SaveEngineTests.csproj
 dotnet run --project tests/SteamDiscoveryTests.csproj
 dotnet run --project tests/SaveLocationTests.csproj
-dotnet build OpenGameSave.csproj -c Release
+dotnet build Savepoint.csproj -c Release
 ```
 
 GitHub Actions runs these checks on Windows. Release packages are published in GitHub Releases.
 
 ## Steam notice
 
-OpenGameSave can read local Steam library manifests to find installed games. It is an independent project and is not affiliated with, endorsed by, or sponsored by Valve Corporation or Steam.
+Savepoint can read local Steam library manifests to find installed games. It is an independent project and is not affiliated with, endorsed by, or sponsored by Valve Corporation or Steam.
 
 ## License
 
-OpenGameSave is released under the MIT License. See [LICENSE](LICENSE).
+Savepoint is released under the MIT License. See [LICENSE](LICENSE).
+
+## Name change
+
+Savepoint replaces OpenGameSave. New builds use Savepoint.exe and Savepoint.csproj. Existing releases remain available under their original names.
+
+Existing settings and data locations retain the OpenGameSave folder name for compatibility. Keep these folders when upgrading; no automatic move or data format change is required.

@@ -13,5 +13,18 @@ jobs:
       - run: dotnet run --project tests/SteamDiscoveryTests.csproj --nologo
       - run: dotnet run --project tests/SaveLocationTests.csproj --nologo
       - run: dotnet run --project tests/SafetyTests.csproj --nologo
-      - run: dotnet build OpenGameSave.csproj --configuration Release --nologo
+      - run: dotnet build Savepoint.csproj --configuration Release --nologo
       - run: pwsh -File tests/Test-Release.ps1
+      - name: Verify product branding
+        shell: pwsh
+        run: |
+          $exe = Join-Path $PWD 'test-output/Savepoint.exe'
+          $info = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($exe)
+          if ($info.ProductName -ne 'Savepoint' -or $info.FileDescription -ne 'Savepoint') { throw 'Executable product branding is incorrect' }
+      - uses: actions/upload-artifact@v7
+        with:
+          name: Savepoint-win-x64
+          path: |
+            test-output/*.exe
+            test-output/*.dll
+          if-no-files-found: error

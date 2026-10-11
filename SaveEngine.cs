@@ -2,7 +2,7 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Text.Json;
 
-namespace OpenGameSave;
+namespace Savepoint;
 
 public sealed record GameProfile(string Name, string? GameFolder, string SaveFolder);
 public sealed record SaveFile(string RelativePath, long Bytes, string Sha256);

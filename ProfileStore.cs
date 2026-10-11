@@ -1,6 +1,6 @@
 using System.IO;
 using System.Text.Json;
-namespace OpenGameSave;
+namespace Savepoint;
 public sealed record SavedProfile(string Name, string SaveFolder, string Library);
 public static class ProfileStore
 {

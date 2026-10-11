@@ -1,5 +1,5 @@
 using System.IO;
-namespace OpenGameSave;
+namespace Savepoint;
 public static class SaveLocationLocator
 {
     public static IReadOnlyList<string> FindCandidates(DetectedGame game, IEnumerable<string> roots)

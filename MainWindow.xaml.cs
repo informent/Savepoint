@@ -3,7 +3,7 @@ using System.Windows;
 using System.Windows.Media.Imaging;
 using System.Windows.Media.Animation;
 using Forms = System.Windows.Forms;
-namespace OpenGameSave;
+namespace Savepoint;
 public partial class MainWindow : Window
 {
     private string? saveFolder; private string? library; private SaveSnapshot? selected;
@@ -68,7 +68,7 @@ public partial class MainWindow : Window
         StatusText.Text = $"Found {candidates.Count:N0} possible save folders. Choose the exact folder manually.";
     }
     private void ChooseSave_Click(object sender, RoutedEventArgs e) { using var d = new Forms.FolderBrowserDialog { Description = "Choose this game's save folder" }; if (d.ShowDialog() == Forms.DialogResult.OK) { saveFolder = d.SelectedPath; ProfileText.Text = Path.GetFileName(saveFolder); StatusText.Text = "Choose a backup library."; Refresh(); } }
-    private void ChooseLibrary_Click(object sender, RoutedEventArgs e) { using var d = new Forms.FolderBrowserDialog { Description = "Choose where OpenGameSave stores snapshots" }; if (d.ShowDialog() == Forms.DialogResult.OK) { library = d.SelectedPath; StatusText.Text = "Ready to create a snapshot."; Refresh(); } }
+    private void ChooseLibrary_Click(object sender, RoutedEventArgs e) { using var d = new Forms.FolderBrowserDialog { Description = "Choose where Savepoint stores snapshots" }; if (d.ShowDialog() == Forms.DialogResult.OK) { library = d.SelectedPath; StatusText.Text = "Ready to create a snapshot."; Refresh(); } }
     private async void Snapshot_Click(object sender, RoutedEventArgs e) { if (saveFolder is null || library is null) { StatusText.Text = "Choose a save folder and backup library first."; return; } var profile = new GameProfile(Path.GetFileName(saveFolder), null, saveFolder); SnapshotButton.IsEnabled = false; StatusText.Text = "Creating verified snapshot…"; try { selected = await Task.Run(() => SaveEngine.CreateSnapshot(profile, library)); ProfileStore.Save(new SavedProfile(profile.Name, profile.SaveFolder, library)); StatusText.Text = $"Snapshot verified: {selected.Files.Count:N0} files."; Refresh(); } catch (Exception ex) { StatusText.Text = ex.Message; } finally { SnapshotButton.IsEnabled = true; } }
     private void Refresh() { if (library is null || saveFolder is null) return; var name = Path.GetFileName(saveFolder); var root = Path.Combine(library, name); if (!Directory.Exists(root)) return; SnapshotList.ItemsSource = Directory.EnumerateDirectories(root).OrderByDescending(x => x).Select(Path.GetFileName).ToArray(); CountText.Text = $"{Directory.EnumerateDirectories(root).Count():N0} snapshots"; }
     private void Snapshot_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e) { if (library is null || SnapshotList.SelectedItem is not string id || saveFolder is null) return; try { selected = SaveEngine.Load(Path.Combine(library, Path.GetFileName(saveFolder), id)); SelectedText.Text = id; StatusText.Text = $"{selected.Files.Count:N0} files · {FormatBytes(selected.TotalBytes)} · {selected.CreatedAt:g}"; var plan = SaveEngine.PlanRestore(Path.Combine(library, selected.ProfileName, selected.Id), saveFolder); if (restorePlanText is not null) restorePlanText.Text = plan.ExistingFiles == 0 ? $"Ready to restore · {plan.NewFiles:N0} files will be added." : $"Review required · {plan.ExistingFiles:N0} existing files will block restore."; } catch (Exception ex) { StatusText.Text = ex.Message; } }

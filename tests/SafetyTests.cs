@@ -1,4 +1,4 @@
-using OpenGameSave;
+using Savepoint;
 using System.Text.Json;
 var root = Path.Combine(Path.GetTempPath(), "opengamesave-safety-" + Guid.NewGuid().ToString("N"));
 var snapshot = Path.Combine(root, "snapshot"); Directory.CreateDirectory(snapshot);
