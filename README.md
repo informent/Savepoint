@@ -54,12 +54,12 @@ Existing settings and data locations retain the OpenGameSave folder name for com
 
 Windows setup packages install Savepoint for your current account, bundle the .NET runtime, create a Start menu shortcut and register an uninstaller. A desktop shortcut is optional. No administrator password or manual file copying is required. Existing settings and saved data stay in their current locations. The portable ZIP remains available.
 
-Download `Savepoint-v1.4.1-setup.exe` from Releases and run it.
+Download `Savepoint-v1.5.0-setup.exe` from Releases and run it.
 
 For unattended deployment:
 
 ```powershell
-Start-Process .\Savepoint-v1.4.1-setup.exe -ArgumentList '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-' -Wait -PassThru
+Start-Process .\Savepoint-v1.5.0-setup.exe -ArgumentList '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-' -Wait -PassThru
 ```
 
 Build from source with the [open-source Inno Setup compiler](https://github.com/jrsoftware/issrc) installed:
@@ -69,3 +69,16 @@ pwsh -File scripts/Build-Setup.ps1 -Verify
 ```
 
 The verification option installs into a temporary test folder, checks reinstall and launch, then uninstalls. It runs on the hosted Windows runner during CI. It does not remove existing user settings or backups.
+
+## Compare saves and preview restores
+
+Version 1.5 adds headless JSON reports to help inspect a game's save history before restoring. Both commands verify snapshot paths, file sizes and SHA-256 values before writing a report.
+
+```powershell
+Start-Process .\Savepoint.exe -ArgumentList '--compare "D:\Saves\Game\OLDER" "D:\Saves\Game\NEWER" --report "D:\Reports\changes.json"' -WindowStyle Hidden -Wait -PassThru
+Start-Process .\Savepoint.exe -ArgumentList '--preview-restore "D:\Saves\Game\NEWER" "D:\Restore" --report "D:\Reports\restore.json"' -WindowStyle Hidden -Wait -PassThru
+```
+
+Comparison reports classify Added, Removed, Modified and Unchanged files and show the net byte change. Restore previews classify NewFile, Identical, Conflict and Blocked targets. Neither command changes saves or restore destinations. Reports contain local filenames and paths, so keep them private when necessary. The report folder must already exist and the output filename must be new. Exit code 0 means success; code 2 means invalid input, failed integrity checks or an output failure. Refresh previews if files change before restoring.
+
+Capture and restore reject linked ancestors. Directory collisions and files blocking destination folders are checked before copying begins. The root filename `manifest.json` is reserved for snapshot metadata and cannot be captured; nested files with that name are supported. No snapshot format migration is required.

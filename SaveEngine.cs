@@ -21,6 +21,7 @@ public static class SaveEngine
         var libraryRoot = Path.GetFullPath(library);
         var profileRoot = Path.GetFullPath(Path.Combine(libraryRoot, profile.Name));
         if (IsWithinOrEqual(profileRoot, saveRoot)) throw new InvalidOperationException("The snapshot library cannot be inside the save folder.");
+        EnsureNoLinks(saveRoot); EnsureNoLinks(profileRoot);
         Directory.CreateDirectory(profileRoot);
         var id = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff"); var finalRoot = Path.Combine(profileRoot, id);
         while (Directory.Exists(finalRoot)) { id = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff") + "-" + Random.Shared.Next(100, 999); finalRoot = Path.Combine(profileRoot, id); }
@@ -31,6 +32,7 @@ public static class SaveEngine
             foreach (var file in EnumerateRegularFiles(saveRoot))
             {
                 var relative = Path.GetRelativePath(saveRoot, file); EnsureSafeRelativePath(relative);
+                if (relative.Equals("manifest.json", StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("The source contains the reserved root filename manifest.json.");
                 var target = Resolve(workingRoot, relative); Directory.CreateDirectory(Path.GetDirectoryName(target)!); File.Copy(file, target, false);
                 var copied = new FileInfo(target); files.Add(new SaveFile(relative, copied.Length, Hash(target)));
             }
@@ -47,7 +49,7 @@ public static class SaveEngine
         {
             EnsureSafeRelativePath(file.RelativePath);
             if (!seen.Add(file.RelativePath)) throw new InvalidDataException($"Snapshot contains a duplicate path: {file.RelativePath}");
-            if (file.Bytes < 0 || file.Sha256.Length != 64 || !file.Sha256.All(Uri.IsHexDigit)) throw new InvalidDataException($"Snapshot metadata is invalid: {file.RelativePath}");
+            if (file.Bytes < 0 || file.Sha256 is null || file.Sha256.Length != 64 || !file.Sha256.All(Uri.IsHexDigit)) throw new InvalidDataException($"Snapshot metadata is invalid: {file.RelativePath}");
             var path = Resolve(snapshotRoot, file.RelativePath); EnsureNoReparseAncestors(snapshotRoot, path);
             if (!File.Exists(path) || new FileInfo(path).Length != file.Bytes || !Hash(path).Equals(file.Sha256, StringComparison.OrdinalIgnoreCase)) return false;
         }
@@ -56,15 +58,21 @@ public static class SaveEngine
 
     public static SaveSnapshot Load(string root)
     {
-        var manifest = Path.Combine(root, "manifest.json"); if (!File.Exists(manifest)) throw new FileNotFoundException("Snapshot manifest not found.", manifest);
-        return JsonSerializer.Deserialize<SaveSnapshot>(File.ReadAllText(manifest)) ?? throw new InvalidDataException("Invalid save snapshot manifest.");
+        var manifest = Path.Combine(root, "manifest.json"); EnsureNoLinks(manifest); if (!File.Exists(manifest)) throw new FileNotFoundException("Snapshot manifest not found.", manifest);
+        var snapshot = JsonSerializer.Deserialize<SaveSnapshot>(File.ReadAllText(manifest)) ?? throw new InvalidDataException("Invalid save snapshot manifest.");
+        if (snapshot.Files is null || snapshot.Files.Any(x => x is null)) throw new InvalidDataException("Snapshot file list is invalid.");
+        return snapshot;
     }
 
     public static RestorePlan PlanRestore(string snapshotRoot, string target)
     {
         if (!Verify(snapshotRoot)) throw new InvalidDataException("Snapshot integrity verification failed.");
         var snapshot = Load(snapshotRoot); var existing = 0;
-        foreach (var file in snapshot.Files) { var destination = Resolve(target, file.RelativePath); EnsureNoReparseAncestors(target, destination); if (File.Exists(destination)) existing++; }
+        foreach (var file in snapshot.Files) { var destination = Resolve(target, file.RelativePath); EnsureNoReparseAncestors(target, destination);
+            if (Directory.Exists(destination)) throw new IOException("A directory occupies a restore file path.");
+            for (var parent = Path.GetDirectoryName(destination); !string.IsNullOrEmpty(parent); parent = Path.GetDirectoryName(parent))
+                if (File.Exists(parent)) throw new IOException("A file blocks a restore directory.");
+            if (File.Exists(destination)) existing++; }
         return new RestorePlan(snapshot.Files.Count, snapshot.Files.Count - existing, existing);
     }
 
@@ -80,7 +88,7 @@ public static class SaveEngine
     private static string Resolve(string root, string relative) { EnsureSafeRelativePath(relative); var basePath = NormalizeDirectory(root); var full = Path.GetFullPath(Path.Combine(basePath, relative)); if (!full.StartsWith(basePath, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("Snapshot contains an unsafe path."); return full; }
     private static string NormalizeDirectory(string path) => Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
     private static bool IsWithinOrEqual(string candidate, string root) => NormalizeDirectory(candidate).StartsWith(NormalizeDirectory(root), StringComparison.OrdinalIgnoreCase);
-    private static void EnsureSafeRelativePath(string relative) { if (string.IsNullOrWhiteSpace(relative) || Path.IsPathRooted(relative) || relative.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).Any(x => x is "" or "." or "..")) throw new InvalidDataException("Snapshot contains an unsafe path."); }
+    private static void EnsureSafeRelativePath(string relative) { if (string.IsNullOrWhiteSpace(relative) || Path.IsPathRooted(relative) || relative.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).Any(x => x is "" or "." or ".." || x.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 || x.EndsWith(" ") || x.EndsWith("."))) throw new InvalidDataException("Snapshot contains an unsafe path."); }
     private static IEnumerable<string> EnumerateRegularFiles(string root)
     {
         var pending = new Stack<string>(); pending.Push(root);
@@ -97,6 +105,7 @@ public static class SaveEngine
     }
     private static void EnsureNoReparseAncestors(string root, string path)
     {
+        EnsureNoLinks(path);
         var rootPath = NormalizeDirectory(root); var full = Path.GetFullPath(path);
         if (!full.StartsWith(rootPath, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("Resolved path escaped its root.");
         var current = Path.TrimEndingDirectorySeparator(rootPath);
@@ -104,6 +113,15 @@ public static class SaveEngine
         var relative = Path.GetRelativePath(current, full); var parts = relative.Split(Path.DirectorySeparatorChar);
         for (var i = 0; i < parts.Length - 1; i++) { current = Path.Combine(current, parts[i]); if (Directory.Exists(current) && (File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0) throw new InvalidDataException($"Linked directory is not allowed: {parts[i]}"); }
         if (File.Exists(full) && (File.GetAttributes(full) & FileAttributes.ReparsePoint) != 0) throw new InvalidDataException("Linked files are not allowed.");
+    }
+    internal static void EnsureNoLinks(string path)
+    {
+        for (string? current = Path.GetFullPath(path); !string.IsNullOrEmpty(current); current = Path.GetDirectoryName(current))
+        {
+            try { if ((File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0) throw new InvalidDataException("Filesystem links are not allowed in snapshot or restore paths."); }
+            catch (FileNotFoundException) { }
+            catch (DirectoryNotFoundException) { }
+        }
     }
     private static string Hash(string path) { using var stream = File.OpenRead(path); return Convert.ToHexString(SHA256.HashData(stream)); }
 }
