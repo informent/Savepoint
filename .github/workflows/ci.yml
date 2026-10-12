@@ -13,8 +13,10 @@ jobs:
       - run: dotnet run --project tests/SteamDiscoveryTests.csproj --nologo
       - run: dotnet run --project tests/SaveLocationTests.csproj --nologo
       - run: dotnet run --project tests/SafetyTests.csproj --nologo
+      - run: dotnet run --project tests/SnapshotAnalysisTests.csproj --nologo
       - run: dotnet build Savepoint.csproj --configuration Release --nologo
       - run: pwsh -File tests/Test-Release.ps1
+      - run: pwsh -File tests/Test-Analysis.ps1 -Exe ./test-output/Savepoint.exe
       - name: Verify product branding
         shell: pwsh
         run: |
