@@ -61,8 +61,8 @@ public partial class MainWindow : Window
     private void LocateSave_Click(object sender, RoutedEventArgs e)
     {
         if (GameSelector.SelectedItem is not DetectedGame game) { StatusText.Text = "Detect Steam games and select a game first."; return; }
-        var userdata = Path.Combine(game.LibraryPath, "steamapps", "userdata");
-        var candidates = SaveLocationLocator.FindCandidates(game, new[] { userdata });
+        var userdata = SteamDiscovery.FindSteamRoots().Select(root => Path.Combine(root, "userdata"));
+        var candidates = SaveLocationLocator.FindCandidates(game, userdata);
         if (candidates.Count == 0) { StatusText.Text = "No likely save folder was found. Choose it manually."; return; }
         if (candidates.Count == 1) { saveFolder = candidates[0]; ProfileText.Text = game.Name; ShowArtwork(game); StatusText.Text = $"Found save folder: {saveFolder}"; Refresh(); return; }
         StatusText.Text = $"Found {candidates.Count:N0} possible save folders. Choose the exact folder manually.";
