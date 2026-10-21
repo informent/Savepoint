@@ -7,9 +7,13 @@ Savepoint is a local-first Windows utility for protecting game saves with clear,
 - Detects installed Steam games from Steam's library manifests.
 - Shows selected game artwork when available.
 - Finds common save locations, including Steam userdata and standard Windows folders.
+- Finds a game's Steam cloud files across local Steam accounts, including games installed in a secondary library. When present, the game's `remote` folder is preferred over cloud metadata.
+
 - Creates atomic timestamped snapshots with SHA-256 hashes and a JSON manifest.
 - Validates every path, hash, length, duplicate, and destination collision before restoring the first file.
 - Keeps data on your computer. No account, telemetry, or cloud service is required.
+
+Steam cloud candidates follow Valve's documented [`Steam\userdata\<account>\<appid>` layout](https://help.steampowered.com/en/faqs/view/68d2-35ab-09a9-7678). Linked folders are excluded. These are candidates, not a complete database of every game's save locations; verify the selected folder before making a profile. Multiple accounts stay separate.
 
 ## Use
 
